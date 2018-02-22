@@ -7,7 +7,7 @@ var debug = require('debug')('wemo-client');
 
 var WemoClient = require('./client');
 
-var Wemo = module.exports = function(opts) {
+var Wemo = module.exports = function (opts) {
   opts = opts || {};
   this._port = opts.port || 0;
   this._listenInterface = opts.listen_interface;
@@ -29,7 +29,7 @@ Wemo.DEVICE_TYPE = {
   HeaterB: 'urn:Belkin:device:HeaterB:1'
 };
 
-Wemo.prototype.load = function(setupUrl, cb) {
+Wemo.prototype.load = function (setupUrl, cb) {
   var self = this;
   var location = url.parse(setupUrl);
 
@@ -38,7 +38,7 @@ Wemo.prototype.load = function(setupUrl, cb) {
     port: location.port,
     path: location.path,
     method: 'GET'
-  }, function(err, json) {
+  }, function (err, json) {
     if (!err && json) {
       var device = json.root.device;
       device.host = location.hostname;
@@ -61,9 +61,9 @@ Wemo.prototype.load = function(setupUrl, cb) {
   });
 };
 
-Wemo.prototype.discover = function(cb) {
+Wemo.prototype.discover = function (cb) {
   var self = this;
-  var handleResponse = function(msg, statusCode, rinfo) {
+  var handleResponse = function (msg, statusCode, rinfo) {
     if (msg.ST && msg.ST === 'urn:Belkin:service:basicevent:1') {
       self.load(msg.LOCATION, cb);
     }
@@ -74,8 +74,8 @@ Wemo.prototype.discover = function(cb) {
   this._ssdpClient.search('urn:Belkin:service:basicevent:1');
 };
 
-Wemo.prototype._listen = function() {
-  var serverCallback = function(err) {
+Wemo.prototype._listen = function () {
+  var serverCallback = function (err) {
     if (err) {
       throw err;
     }
@@ -89,15 +89,15 @@ Wemo.prototype._listen = function() {
   }
 };
 
-Wemo.prototype._handleRequest = function(req, res) {
+Wemo.prototype._handleRequest = function (req, res) {
   var body = '';
   var udn = req.url.substring(1);
 
   if ((req.method == 'NOTIFY') && this._clients[udn]) {
-    req.on('data', function(chunk) {
+    req.on('data', function (chunk) {
       body += chunk.toString();
     });
-    req.on('end', function() {
+    req.on('end', function () {
       debug('Incoming Request for %s: %s', udn, body);
       this._clients[udn].handleCallback(body);
       res.writeHead(204);
@@ -110,7 +110,7 @@ Wemo.prototype._handleRequest = function(req, res) {
   }
 };
 
-Wemo.prototype.getLocalInterfaceAddress = function(targetNetwork) {
+Wemo.prototype.getLocalInterfaceAddress = function (targetNetwork) {
   var interfaces = os.networkInterfaces();
   if (this._listenInterface) {
     if (interfaces[this._listenInterface]) {
@@ -135,7 +135,7 @@ Wemo.prototype.getLocalInterfaceAddress = function(targetNetwork) {
   return addresses.shift();
 };
 
-Wemo.prototype.getCallbackURL = function(opts) {
+Wemo.prototype.getCallbackURL = function (opts) {
   opts = opts || {};
   if (!this._callbackURL) {
     var port = this._server.address().port;
@@ -145,7 +145,7 @@ Wemo.prototype.getCallbackURL = function(opts) {
   return this._callbackURL;
 };
 
-Wemo.prototype.client = function(device) {
+Wemo.prototype.client = function (device) {
   if (this._clients[device.UDN] && !this._clients[device.UDN].error) {
     return this._clients[device.UDN];
   }

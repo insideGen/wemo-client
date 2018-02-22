@@ -10,13 +10,13 @@ function mapCapabilities(capabilityIds, capabilityValues) {
   var ids = capabilityIds.split(',');
   var values = capabilityValues.split(',');
   var result = {};
-  ids.forEach(function(val, index) {
+  ids.forEach(function (val, index) {
     result[val] = values[index];
   });
   return result;
 }
 
-var WemoClient = module.exports = function(config) {
+var WemoClient = module.exports = function (config) {
   EventEmitter.call(this);
   this.host = config.host;
   this.port = config.port;
@@ -28,7 +28,7 @@ var WemoClient = module.exports = function(config) {
   this.error = undefined;
 
   // Create map of services
-  config.serviceList.service.forEach(function(service) {
+  config.serviceList.service.forEach(function (service) {
     this[service.serviceType] = {
       serviceId: service.serviceId,
       controlURL: service.controlURL,
@@ -50,31 +50,31 @@ WemoClient.EventServices = {
   binaryState: 'urn:Belkin:service:basicevent:1'
 };
 
-WemoClient.request = function(options, data, cb) {
+WemoClient.request = function (options, data, cb) {
   if (!cb && typeof data === 'function') {
     cb = data;
     data = null;
   }
 
-  var req = http.request(options, function(res) {
+  var req = http.request(options, function (res) {
     var body = '';
     res.setEncoding('utf8');
-    res.on('data', function(chunk) {
+    res.on('data', function (chunk) {
       body += chunk;
     });
-    res.on('end', function() {
+    res.on('end', function () {
       if (res.statusCode === 200) {
         xml2js.parseString(body, { explicitArray: false }, cb);
       } else {
         cb(new Error('HTTP ' + res.statusCode + ': ' + body));
       }
     });
-    res.on('error', function(err) {
+    res.on('error', function (err) {
       debug('Error on http.request.res:', err);
       cb(err);
     });
   });
-  req.on('error', function(err) {
+  req.on('error', function (err) {
     debug('Error on http.request.req:', err);
     cb(err);
   });
@@ -84,10 +84,10 @@ WemoClient.request = function(options, data, cb) {
   req.end();
 };
 
-WemoClient.prototype.soapAction = function(serviceType, action, body, cb) {
+WemoClient.prototype.soapAction = function (serviceType, action, body, cb) {
   this._verifyServiceSupport(serviceType);
 
-  cb = cb || function() {};
+  cb = cb || function () {};
 
   var xml = xmlbuilder.create('s:Envelope', {
     version: '1.0',
@@ -113,7 +113,7 @@ WemoClient.prototype.soapAction = function(serviceType, action, body, cb) {
     }
   };
 
-  WemoClient.request(options, payload, function(err, response) {
+  WemoClient.request(options, payload, function (err, response) {
     if (err) {
       this.error = err.code;
       this.emit('error', err);
@@ -124,8 +124,8 @@ WemoClient.prototype.soapAction = function(serviceType, action, body, cb) {
   }.bind(this));
 };
 
-WemoClient.prototype.getEndDevices = function(cb) {
-  var parseDeviceInfo = function(data) {
+WemoClient.prototype.getEndDevices = function (cb) {
+  var parseDeviceInfo = function (data) {
     var device = {};
 
     if (data.GroupID) {
@@ -157,11 +157,11 @@ WemoClient.prototype.getEndDevices = function(cb) {
     return device;
   };
 
-  var parseResponse = function(err, data) {
+  var parseResponse = function (err, data) {
     if (err) return cb(err);
     debug('endDevices raw data', data);
     var endDevices = [];
-    xml2js.parseString(data.DeviceLists, function(err, result) {
+    xml2js.parseString(data.DeviceLists, function (err, result) {
       if (err) return cb(err);
       var deviceInfos = result.DeviceLists.DeviceList[0].DeviceInfos[0].DeviceInfo;
       if (deviceInfos) {
@@ -181,7 +181,7 @@ WemoClient.prototype.getEndDevices = function(cb) {
   }, parseResponse);
 };
 
-WemoClient.prototype.setDeviceStatus = function(deviceId, capability, value, cb) {
+WemoClient.prototype.setDeviceStatus = function (deviceId, capability, value, cb) {
   var deviceStatusList = xmlbuilder.create('DeviceStatus', {
     version: '1.0',
     encoding: 'utf-8'
@@ -199,10 +199,10 @@ WemoClient.prototype.setDeviceStatus = function(deviceId, capability, value, cb)
   }, cb);
 };
 
-WemoClient.prototype.getDeviceStatus = function(deviceId, cb) {
-  var parseResponse = function(err, data) {
+WemoClient.prototype.getDeviceStatus = function (deviceId, cb) {
+  var parseResponse = function (err, data) {
     if (err) return cb(err);
-    xml2js.parseString(data.DeviceStatusList, { explicitArray: false }, function(err, result) {
+    xml2js.parseString(data.DeviceStatusList, { explicitArray: false }, function (err, result) {
       if (err) return cb(err);
       var deviceStatus = result['DeviceStatusList']['DeviceStatus'];
       var capabilities = mapCapabilities(deviceStatus.CapabilityID, deviceStatus.CapabilityValue);
@@ -215,42 +215,42 @@ WemoClient.prototype.getDeviceStatus = function(deviceId, cb) {
   }, parseResponse);
 };
 
-WemoClient.prototype.setLightColor = function(deviceId, red, green, blue, cb) {
+WemoClient.prototype.setLightColor = function (deviceId, red, green, blue, cb) {
   var color = WemoClient.rgb2xy(red, green, blue);
   this.setDeviceStatus(deviceId, 10300, color.join(':') + ':0', cb);
 };
 
-WemoClient.prototype.setBinaryState = function(value, cb) {
+WemoClient.prototype.setBinaryState = function (value, cb) {
   this.soapAction('urn:Belkin:service:basicevent:1', 'SetBinaryState', {
     BinaryState: value
   }, cb);
 };
 
-WemoClient.prototype.getBinaryState = function(cb) {
-  this.soapAction('urn:Belkin:service:basicevent:1', 'GetBinaryState', null, function(err, data) {
+WemoClient.prototype.getBinaryState = function (cb) {
+  this.soapAction('urn:Belkin:service:basicevent:1', 'GetBinaryState', null, function (err, data) {
     if (err) return cb(err);
     cb(null, data.BinaryState);
   });
 };
 
-WemoClient.prototype.setBrightness = function(brightness, cb) {
+WemoClient.prototype.setBrightness = function (brightness, cb) {
   this.soapAction('urn:Belkin:service:basicevent:1', 'SetBinaryState', {
     BinaryState: brightness <= 0 ? 0 : 1,
     brightness: brightness
   }, cb);
 };
 
-WemoClient.prototype.getBrightness = function(cb) {
-  this.soapAction('urn:Belkin:service:basicevent:1', 'GetBinaryState', null, function(err, data) {
+WemoClient.prototype.getBrightness = function (cb) {
+  this.soapAction('urn:Belkin:service:basicevent:1', 'GetBinaryState', null, function (err, data) {
     if (err) return cb(err);
     cb(null, parseInt(data.brightness));
   });
 };
 
-WemoClient.prototype.setAttributes = function(attributes, cb) {
+WemoClient.prototype.setAttributes = function (attributes, cb) {
   var builder = new xml2js.Builder({ rootName: 'attribute', headless: true, renderOpts: { pretty: false } });
 
-  var xml_attributes = Object.keys(attributes).map(function(attribute_key) {
+  var xml_attributes = Object.keys(attributes).map(function (attribute_key) {
     return builder.buildObject({ name: attribute_key, value: attributes[attribute_key] });
   }).join('');
 
@@ -261,11 +261,11 @@ WemoClient.prototype.setAttributes = function(attributes, cb) {
   }, cb);
 };
 
-WemoClient.prototype.getAttributes = function(cb) {
-  this.soapAction('urn:Belkin:service:deviceevent:1', 'GetAttributes', null, function(err, data) {
+WemoClient.prototype.getAttributes = function (cb) {
+  this.soapAction('urn:Belkin:service:deviceevent:1', 'GetAttributes', null, function (err, data) {
     if (err) return cb(err);
     var xml = '<attributeList>' + entities.decodeXML(data.attributeList) + '</attributeList>';
-    xml2js.parseString(xml, { explicitArray: false }, function(err, result) {
+    xml2js.parseString(xml, { explicitArray: false }, function (err, result) {
       if (err) return cb(err);
       var attributes = {};
       for (var key in result.attributeList.attribute) {
@@ -277,8 +277,8 @@ WemoClient.prototype.getAttributes = function(cb) {
   });
 };
 
-WemoClient.prototype.getInsightParams = function(cb) {
-  this.soapAction('urn:Belkin:service:insight:1', 'GetInsightParams', null, function(err, data) {
+WemoClient.prototype.getInsightParams = function (cb) {
+  this.soapAction('urn:Belkin:service:insight:1', 'GetInsightParams', null, function (err, data) {
     if (err) return cb(err);
 
     var params = this._parseInsightParams(data.InsightParams);
@@ -286,7 +286,7 @@ WemoClient.prototype.getInsightParams = function(cb) {
   }.bind(this));
 };
 
-WemoClient.prototype._parseInsightParams = function(paramsStr) {
+WemoClient.prototype._parseInsightParams = function (paramsStr) {
   var params = paramsStr.split('|');
 
   return {
@@ -301,14 +301,14 @@ WemoClient.prototype._parseInsightParams = function(paramsStr) {
   };
 };
 
-WemoClient.prototype._onListenerAdded = function(eventName) {
+WemoClient.prototype._onListenerAdded = function (eventName) {
   var serviceType = WemoClient.EventServices[eventName];
   if (serviceType && this.services[serviceType]) {
     this._subscribe(serviceType);
   }
 };
 
-WemoClient.prototype._subscribe = function(serviceType) {
+WemoClient.prototype._subscribe = function (serviceType) {
   this._verifyServiceSupport(serviceType);
 
   if (!this.callbackURL) {
@@ -341,7 +341,7 @@ WemoClient.prototype._subscribe = function(serviceType) {
     options.headers.SID = this.subscriptions[serviceType];
   }
 
-  var req = http.request(options, function(res) {
+  var req = http.request(options, function (res) {
     if (res.statusCode === 200) {
       // Renew after 150 seconds
       this.subscriptions[serviceType] = res.headers.sid;
@@ -354,7 +354,7 @@ WemoClient.prototype._subscribe = function(serviceType) {
     }
   }.bind(this));
 
-  req.on('error', function(err) {
+  req.on('error', function (err) {
     debug('Subscription error: %s - Device: %s, Service: %s', err.code, this.UDN, serviceType);
     this.subscriptions[serviceType] = null;
     this.error = err.code;
@@ -364,24 +364,23 @@ WemoClient.prototype._subscribe = function(serviceType) {
   req.end();
 };
 
-WemoClient.prototype._verifyServiceSupport = function(serviceType) {
+WemoClient.prototype._verifyServiceSupport = function (serviceType) {
   if (!this.services[serviceType]) {
     throw new Error('Service ' + serviceType + ' not supported by ' + this.UDN);
   }
 };
 
-
-WemoClient.prototype.handleCallback = function(body) {
+WemoClient.prototype.handleCallback = function (body) {
   var self = this;
   var handler = {
-    BinaryState: function(data) {
+    BinaryState: function (data) {
       self.emit('binaryState', data.substring(0, 1));
     },
-    Brightness: function(data) {
+    Brightness: function (data) {
       self.emit('brightness', parseInt(data));
     },
-    StatusChange: function(data) {
-      xml2js.parseString(data, { explicitArray: false }, function(err, xml) {
+    StatusChange: function (data) {
+      xml2js.parseString(data, { explicitArray: false }, function (err, xml) {
         if (!err) {
           self.emit('statusChange',
             xml.StateEvent.DeviceID._,
@@ -391,17 +390,17 @@ WemoClient.prototype.handleCallback = function(body) {
         }
       });
     },
-    InsightParams: function(data) {
+    InsightParams: function (data) {
       var params = this._parseInsightParams(data);
       self.emit('insightParams', params.binaryState, params.instantPower, params.insightParams);
     }.bind(this),
-    attributeList: function(data) {
+    attributeList: function (data) {
       var xml = '<attributeList>' + entities.decodeXML(data) + '</attributeList>';
-      xml2js.parseString(xml, { explicitArray: true }, function(err, result) {
+      xml2js.parseString(xml, { explicitArray: true }, function (err, result) {
         if (!err) {
           // In order to keep the existing event signature this
           // triggers an event for every attribute changed.
-          result.attributeList.attribute.forEach(function(attribute) {
+          result.attributeList.attribute.forEach(function (attribute) {
             self.emit('attributeList',
               attribute.name[0],
               attribute.value[0],
@@ -414,7 +413,7 @@ WemoClient.prototype.handleCallback = function(body) {
     }
   };
 
-  xml2js.parseString(body, { explicitArray: false }, function(err, xml) {
+  xml2js.parseString(body, { explicitArray: false }, function (err, xml) {
     if (err) throw err;
     for (var prop in xml['e:propertyset']['e:property']) {
       if (handler.hasOwnProperty(prop)) {
@@ -426,7 +425,7 @@ WemoClient.prototype.handleCallback = function(body) {
   });
 };
 
-WemoClient.rgb2xy = function(r, g, b) {
+WemoClient.rgb2xy = function (r, g, b) {
   // Based on: https://github.com/aleroddepaz/pyhue/blob/master/src/pyhue.py
   var X = (0.545053 * r) + (0.357580 * g) + (0.180423 * b);
   var Y = (0.212671 * r) + (0.715160 * g) + (0.072169 * b);

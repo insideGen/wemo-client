@@ -342,6 +342,7 @@ WemoClient.prototype._subscribe = function (serviceType) {
   var req = http.request(options, function (res) {
     if (res.statusCode === 200) {
       // Renew after 150 seconds
+      debug('Subscription request succeeded - Device: %s, Service: %s', this.UDN, serviceType);
       this.subscriptions[serviceType] = res.headers.sid;
       this.emit('connected');
       setTimeout(this._subscribe.bind(this), 150 * 1000, serviceType);

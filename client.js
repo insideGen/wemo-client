@@ -25,7 +25,6 @@ var WemoClient = module.exports = function (config) {
   this.subscriptions = {};
   this.callbackURL = config.callbackURL;
   this.device = config;
-  this.error = undefined;
 
   // Create map of services
   config.serviceList.service.forEach(function (service) {
@@ -115,7 +114,6 @@ WemoClient.prototype.soapAction = function (serviceType, action, body, cb) {
 
   WemoClient.request(options, payload, function (err, response) {
     if (err) {
-      this.error = err.code;
       this.emit('error', err);
       return cb(err);
     }
@@ -345,19 +343,18 @@ WemoClient.prototype._subscribe = function (serviceType) {
     if (res.statusCode === 200) {
       // Renew after 150 seconds
       this.subscriptions[serviceType] = res.headers.sid;
+      this.emit('connected');
       setTimeout(this._subscribe.bind(this), 150 * 1000, serviceType);
     } else {
-      // Try to recover from failed subscription after 2 seconds
       debug('Subscription request failed with HTTP %s', res.statusCode);
       this.subscriptions[serviceType] = null;
-      setTimeout(this._subscribe.bind(this), 2000, serviceType);
+      this.emit('error', {'message': 'Subscription request failed with HTTP ' + res.statusCode, 'code': res.statusCode});
     }
   }.bind(this));
 
   req.on('error', function (err) {
     debug('Subscription error: %s - Device: %s, Service: %s', err.code, this.UDN, serviceType);
     this.subscriptions[serviceType] = null;
-    this.error = err.code;
     this.emit('error', err);
   }.bind(this));
 

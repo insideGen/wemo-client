@@ -349,7 +349,7 @@ WemoClient.prototype._subscribe = function (serviceType) {
     } else {
       debug('Subscription request failed with HTTP %s', res.statusCode);
       this.subscriptions[serviceType] = null;
-      this.emit('error', {'message': 'Subscription request failed with HTTP ' + res.statusCode, 'code': res.statusCode});
+      this.emit('error', { 'message': 'Subscription request failed with HTTP ' + res.statusCode, 'code': res.statusCode });
     }
   }.bind(this));
 

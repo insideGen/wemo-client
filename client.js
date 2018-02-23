@@ -1,9 +1,9 @@
 var util = require('util');
+var EventEmitter = require('events').EventEmitter;
+var debug = require('debug')('wemo-client');
 var http = require('http');
 var xml2js = require('xml2js');
 var entities = require('entities');
-var EventEmitter = require('events').EventEmitter;
-var debug = require('debug')('wemo-client');
 var xmlbuilder = require('xmlbuilder');
 
 function mapCapabilities(capabilityIds, capabilityValues) {
@@ -16,8 +16,9 @@ function mapCapabilities(capabilityIds, capabilityValues) {
   return result;
 }
 
-var WemoClient = module.exports = function (config) {
+var WemoClient = module.exports = function (parent, config) {
   EventEmitter.call(this);
+  this.parent = parent;
   this.host = config.host;
   this.port = config.port;
   this.deviceType = config.deviceType;
@@ -34,6 +35,8 @@ var WemoClient = module.exports = function (config) {
       eventSubURL: service.eventSubURL
     };
   }, this.services = {});
+
+  this.parent.on('handleCallback', this.handleCallback.bind(this));
 
   // Transparently subscribe to serviceType events
   // TODO: Unsubscribe from ServiceType when all listeners have been removed.
@@ -368,7 +371,10 @@ WemoClient.prototype._verifyServiceSupport = function (serviceType) {
   }
 };
 
-WemoClient.prototype.handleCallback = function (body) {
+WemoClient.prototype.handleCallback = function (udn, body) {
+  if (this.UDN !== udn) {
+    return;
+  }
   var self = this;
   var handler = {
     BinaryState: function (data) {

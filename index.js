@@ -1,21 +1,26 @@
+var util = require('util');
+var EventEmitter = require('events').EventEmitter;
+var debug = require('debug')('wemo-client');
 var SSDPClient = require('node-ssdp').Client;
 var url = require('url');
 var http = require('http');
 var os = require('os');
 var ip = require('ip');
-var debug = require('debug')('wemo-client');
 
 var WemoClient = require('./client');
 
-var Wemo = module.exports = function (opts) {
+var Wemo = function (opts) {
+  EventEmitter.call(this);
   opts = opts || {};
   this._port = opts.port || 0;
   this._listenInterface = opts.listen_interface;
+  this._callbackURL = null;
 
-  this._clients = {};
   this._listen();
   this._ssdpClient = new SSDPClient(opts.discover_opts || {});
 };
+
+util.inherits(Wemo, EventEmitter);
 
 Wemo.DEVICE_TYPE = {
   Bridge: 'urn:Belkin:device:bridge:1',
@@ -43,20 +48,11 @@ Wemo.prototype.load = function (setupUrl, cb) {
       var device = json.root.device;
       device.host = location.hostname;
       device.port = location.port;
-      device.callbackURL = self.getCallbackURL({ clientHostname: location.hostname });
-
-      // Return devices only once!
-      if (!self._clients[device.UDN] || self._clients[device.UDN].error) {
-        debug('Found device: %j', json);
-        if (cb) {
-          cb.call(self, err, device);
-        }
-      }
+      debug('Found device: %j', json);
+      !!cb && cb.call(self, err, device);
     } else {
       debug('Error occurred connecting to device at %s', location);
-      if (cb) {
-        cb.call(self, err, null);
-      }
+      !!cb && cb.call(self, err, null);
     }
   });
 };
@@ -93,20 +89,16 @@ Wemo.prototype._handleRequest = function (req, res) {
   var body = '';
   var udn = req.url.substring(1);
 
-  if ((req.method == 'NOTIFY') && this._clients[udn]) {
+  if (req.method == 'NOTIFY') {
     req.on('data', function (chunk) {
       body += chunk.toString();
     });
     req.on('end', function () {
       debug('Incoming Request for %s: %s', udn, body);
-      this._clients[udn].handleCallback(body);
+      this.emit('handleCallback', udn, body);
       res.writeHead(204);
       res.end();
     }.bind(this));
-  } else {
-    debug('Received request for unknown device: %s', udn);
-    res.writeHead(404);
-    res.end();
   }
 };
 
@@ -146,10 +138,8 @@ Wemo.prototype.getCallbackURL = function (opts) {
 };
 
 Wemo.prototype.client = function (device) {
-  if (this._clients[device.UDN] && !this._clients[device.UDN].error) {
-    return this._clients[device.UDN];
-  }
-
-  var client = this._clients[device.UDN] = new WemoClient(device);
-  return client;
+  device.callbackURL = this.getCallbackURL({ clientHostname: device.host });
+  return new WemoClient(this, device);
 };
+
+module.exports = Wemo;

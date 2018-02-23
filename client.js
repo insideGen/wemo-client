@@ -36,7 +36,11 @@ var WemoClient = module.exports = function (parent, config) {
     };
   }, this.services = {});
 
-  this.parent.on('handleCallback', this.handleCallback.bind(this));
+  this.parent.on('handleCallback', function (udn, body) {
+    if (this.UDN === udn) {
+      this.handleCallback(body);
+    }
+  }.bind(this));
 
   // Transparently subscribe to serviceType events
   // TODO: Unsubscribe from ServiceType when all listeners have been removed.
@@ -371,10 +375,7 @@ WemoClient.prototype._verifyServiceSupport = function (serviceType) {
   }
 };
 
-WemoClient.prototype.handleCallback = function (udn, body) {
-  if (this.UDN !== udn) {
-    return;
-  }
+WemoClient.prototype.handleCallback = function (body) {
   var self = this;
   var handler = {
     BinaryState: function (data) {
